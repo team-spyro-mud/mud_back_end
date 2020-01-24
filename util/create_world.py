@@ -4,44 +4,58 @@ from adventure.models import Player, Room
 
 Room.objects.all().delete()
 
-r_outside = Room(title="Outside Cave Entrance",
-               description="North of you, the cave mount beckons")
+def fillGrid():
+    grid = [[None] * 10 for x in range(10)]
+    counter = 0
+    for i in range(len(grid)):
+        for j in range(len(grid[i])):
+            count_string = f'{counter}th'
+            if counter == 1: count_string = '1st'
+            if counter == 2: count_string = '2nd'
+            if counter == 3: count_string = '3rd'
+            grid[i][j] = Room(title=f"The {count_string} Room", description=f"""This is the description for the {count_string} room, the {count_string} description written.""")
+            grid[i][j].save()
+            counter += 1
+            # Update description generator once map generator is tested and proves working
+    return grid
 
-r_foyer = Room(title="Foyer", description="""Dim light filters in from the south. Dusty
-passages run north and east.""")
+from random import randint
 
-r_overlook = Room(title="Grand Overlook", description="""A steep cliff appears before you, falling
-into the darkness. Ahead to the north, a light flickers in
-the distance, but there is no way across the chasm.""")
+def mapGenerator():
+    grid = fillGrid()
+    for y, row in enumerate(grid):
+        for x, room in enumerate(row):
+            directions = ['n', 's', 'e', 'w']
+            connected = False
+            if y - 1 < 0: directions.remove('n')
+            if y + 1 > len(grid) - 1: directions.remove('s')
+            if x + 1 > len(row) - 1: directions.remove('e')
+            if x - 1 < 0: directions.remove('w')
+            while not connected:
+                for direction in directions:
+                    opposite = ''
+                    if direction == 'n': 
+                        opposite = 's'
+                        conn_room = grid[y - 1][x]
+                    if direction == 's':
+                        opposite = 'n'
+                        conn_room = grid[y + 1][x]
+                    if direction == 'e':
+                        opposite = 'w'
+                        conn_room = grid[y][x + 1]
+                    if direction == 'w':
+                        opposite = 'e'
+                        conn_room = grid[y][x - 1]
+                    toConnect = randint(0, 1)
+                    if toConnect:
+                        room.connectRooms(conn_room, direction)
+                        conn_room.connectRooms(room, opposite)
+                        connected = True
+    return grid[0][0]
 
-r_narrow = Room(title="Narrow Passage", description="""The narrow passage bends here from west
-to north. The smell of gold permeates the air.""")
-
-r_treasure = Room(title="Treasure Chamber", description="""You've found the long-lost treasure
-chamber! Sadly, it has already been completely emptied by
-earlier adventurers. The only exit is to the south.""")
-
-r_outside.save()
-r_foyer.save()
-r_overlook.save()
-r_narrow.save()
-r_treasure.save()
-
-# Link rooms together
-r_outside.connectRooms(r_foyer, "n")
-r_foyer.connectRooms(r_outside, "s")
-
-r_foyer.connectRooms(r_overlook, "n")
-r_overlook.connectRooms(r_foyer, "s")
-
-r_foyer.connectRooms(r_narrow, "e")
-r_narrow.connectRooms(r_foyer, "w")
-
-r_narrow.connectRooms(r_treasure, "n")
-r_treasure.connectRooms(r_narrow, "s")
+first_room = mapGenerator()
 
 players=Player.objects.all()
 for p in players:
-  p.currentRoom=r_outside.id
-  p.save()
-
+    p.currentRoom=first_room.id
+    p.save()
