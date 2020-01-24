@@ -7,7 +7,7 @@
 
 
 class Room:
-    def __init__(self, id, name, description, x, y):
+    def __init__(self, id, name, description):
         self.id = id
         self.name = name
         self.description = description
@@ -15,8 +15,6 @@ class Room:
         self.s_to = None
         self.e_to = None
         self.w_to = None
-        self.x = x
-        self.y = y
     def __repr__(self):
         if self.e_to is not None:
             return f"({self.x}, {self.y}) -> ({self.e_to.x}, {self.e_to.y})"
@@ -39,62 +37,57 @@ class Room:
 class World:
     def __init__(self):
         self.grid = None
-        self.width = 0
-        self.height = 0
+        self.width = 10
+        self.height = 10
     def generate_rooms(self, size_x, size_y, num_rooms):
-        '''
-        Fill up the grid, bottom to top, in a zig-zag pattern
-        '''
+        def fillGrid():
+            grid = [[None] * 10 for x in range(10)]
+            counter = 0
+            for i in range(10):
+                for j in range(10):
+                    count_string = f'{counter}th'
+                    if counter == 1: count_string = '1st'
+                    if counter == 2: count_string = '2nd'
+                    if counter == 3: count_string = '3rd'
+                    grid[i][j] = Room(id=counter, name=f"The {count_string} Room", description=f"""This is the description for the {count_string} room, the {count_string} description written.""")
+                    counter += 1
+                    # Update description generator once map generator is tested and proves working
+            return grid
 
-        # Initialize the grid
-        self.grid = [None] * size_y
-        self.width = size_x
-        self.height = size_y
-        for i in range( len(self.grid) ):
-            self.grid[i] = [None] * size_x
+        from random import randint
 
-        # Start from lower-left corner (0,0)
-        x = -1 # (this will become 0 on the first step)
-        y = 0
-        room_count = 0
-
-        # Start generating rooms to the east
-        direction = 1  # 1: east, -1: west
-
-
-        # While there are rooms to be created...
-        previous_room = None
-        while room_count < num_rooms:
-
-            # Calculate the direction of the room to be created
-            if direction > 0 and x < size_x - 1:
-                room_direction = "e"
-                x += 1
-            elif direction < 0 and x > 0:
-                room_direction = "w"
-                x -= 1
-            else:
-                # If we hit a wall, turn north and reverse direction
-                room_direction = "n"
-                y += 1
-                direction *= -1
-
-            # Create a room in the given direction
-            room = Room(room_count, "A Generic Room", "This is a generic room.", x, y)
-            # Note that in Django, you'll need to save the room after you create it
-
-            # Save the room in the World grid
-            self.grid[y][x] = room
-
-            # Connect the new room to the previous room
-            if previous_room is not None:
-                previous_room.connect_rooms(room, room_direction)
-
-            # Update iteration variables
-            previous_room = room
-            room_count += 1
-
-
+        def mapGenerator():
+            grid = fillGrid()
+            for y, row in enumerate(grid):
+                for x, room in enumerate(row):
+                    directions = ['n', 's', 'e', 'w']
+                    connected = False
+                    if y - 1 < 0: directions.remove('n')
+                    if y + 1 > len(grid) - 1: directions.remove('s')
+                    if x + 1 > len(row) - 1: directions.remove('e')
+                    if x - 1 < 0: directions.remove('w')
+                    while not connected:
+                        for direction in directions:
+                            opposite = ''
+                            if direction == 'n': 
+                                opposite = 's'
+                                conn_room = grid[y - 1][x]
+                            if direction == 's':
+                                opposite = 'n'
+                                conn_room = grid[y + 1][x]
+                            if direction == 'e':
+                                opposite = 'w'
+                                conn_room = grid[y][x + 1]
+                            if direction == 'w':
+                                opposite = 'e'
+                                conn_room = grid[y][x - 1]
+                            toConnect = randint(0, 1)
+                            if toConnect:
+                                room.connect_rooms(conn_room, direction)
+                                conn_room.connect_rooms(room, opposite)
+                                connected = True
+            return grid
+        self.grid = mapGenerator()
 
     def print_rooms(self):
         '''
@@ -104,13 +97,7 @@ class World:
         # Add top border
         str = "# " * ((3 + self.width * 5) // 2) + "\n"
 
-        # The console prints top to bottom but our array is arranged
-        # bottom to top.
-        #
-        # We reverse it so it draws in the right direction.
-        reverse_grid = list(self.grid) # make a copy of the list
-        reverse_grid.reverse()
-        for row in reverse_grid:
+        for row in self.grid:
             # PRINT NORTH CONNECTION ROW
             str += "#"
             for room in row:
